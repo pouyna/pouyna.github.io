@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Pouyan Navabi</title>
+<meta name="description" content="Pouyan Navabi: PhD candidate working on atomic layer deposition and Bayesian active learning. Play the film-growth game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14; --text:#E8ECF1; --text-dim:#8A94A6;
+    --blue:#5B8DEF; --yellow:#EFC94C; --copper:#D98E4C; --hairline:#232935;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%; overflow:hidden;}
+  body{background:var(--bg); color:var(--text); font-family:'IBM Plex Mono', monospace;
+    overscroll-behavior:none;}
+  canvas#game{position:fixed; inset:0; display:block; touch-action:none;
+    user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;}
+
+  .overlay{position:fixed; top:0; left:0; right:0; padding:22px 26px 30px;
+    display:grid; grid-template-columns:1fr auto; grid-template-areas:"who nav" "hud nav";
+    column-gap:16px; align-items:start;
+    background:linear-gradient(to bottom, rgba(11,14,20,0.9) 0%, rgba(11,14,20,0.55) 55%, rgba(11,14,20,0) 100%);
+    pointer-events:none;}
+  .who{grid-area:who;}
+  .who h1{font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:clamp(20px,3.4vw,30px); letter-spacing:-0.02em;}
+  .who p{font-size:12px; color:var(--text-dim); margin-top:4px; letter-spacing:0.02em;}
+  nav{grid-area:nav; display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
+  nav a{pointer-events:auto; font-size:13px; color:var(--text); text-decoration:none;
+    border:1px solid var(--hairline); border-radius:6px; padding:7px 12px; background:rgba(11,14,20,0.55);
+    transition:opacity 0.3s ease;}
+  nav a:hover{border-color:var(--blue); color:var(--blue);}
+  body.playing nav a{pointer-events:none; opacity:0.4;}
+
+  /* Process readout: boxless, lives in the header band the film can never reach */
+  .hud{grid-area:hud; margin-top:16px; pointer-events:none;
+    text-shadow:0 1px 10px rgba(4,6,10,0.95), 0 0 3px rgba(4,6,10,0.95);}
+  #hud-thick{font-family:'Space Grotesk', sans-serif; font-weight:700;
+    font-size:clamp(20px,3.2vw,26px); letter-spacing:-0.01em; font-variant-numeric:tabular-nums;}
+  #hud-sub{font-size:11px; color:var(--text-dim); margin-top:2px; letter-spacing:0.02em;
+    font-variant-numeric:tabular-nums;}
+  .hud-proc{display:flex; align-items:center; gap:8px; margin-top:8px;}
+  #hud-bar{display:block; width:150px; height:4px; border-radius:2px;}
+  #hud-phase{font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-dim);}
+  #hud-hint{font-size:11px; color:var(--text-dim); margin-top:8px; max-width:min(260px, 70vw); line-height:1.5; min-height:33px;}
+  #hud-hint.pulse{animation:hintPulse 0.6s ease;}
+  @keyframes hintPulse{
+    0%{color:var(--text); transform:translateY(0);}
+    35%{transform:translateY(-3px);}
+    100%{color:var(--text-dim); transform:translateY(0);}
+  }
+
+  /* Pulse ring: drawn by dragging upward, fills to start or end a run */
+  #ring{position:fixed; left:50%; top:50%; width:132px; height:132px;
+    transform:translate(-50%,-50%) scale(0.85); opacity:0; pointer-events:none;
+    transition:opacity 0.18s ease, transform 0.18s ease;}
+  #ring.on{opacity:1; transform:translate(-50%,-50%) scale(1);}
+  #ring.pop{opacity:0; transform:translate(-50%,-50%) scale(1.15);
+    transition:opacity 0.3s ease, transform 0.3s ease;}
+  #ring svg{display:block; width:100%; height:100%; transform:rotate(-90deg);}
+  #ring .track{fill:none; stroke:rgba(232,236,241,0.14); stroke-width:6;}
+  #ring .fill{fill:none; stroke:url(#ring-grad); stroke-width:6; stroke-linecap:round;}
+  #ring .dot{fill:#E8ECF1;}
+  #ring-label{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--text);
+    text-shadow:0 1px 8px rgba(4,6,10,0.9);}
+
+  /* Run summary card, shown when a run ends */
+  #card{position:fixed; left:50%; top:50%; width:min(300px, 84vw);
+    transform:translate(-50%,-46%); opacity:0; pointer-events:none;
+    background:rgba(13,17,25,0.86); border:1px solid var(--hairline); border-radius:12px;
+    padding:18px 20px 16px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transition:opacity 0.35s ease, transform 0.35s ease;}
+  #card.on{opacity:1; transform:translate(-50%,-50%);}
+  #card .eyebrow{font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:var(--text-dim);}
+  #card-nm{font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:34px;
+    margin:6px 0 12px; letter-spacing:-0.02em; font-variant-numeric:tabular-nums;}
+  #card .row{display:flex; justify-content:space-between; gap:14px; font-size:12px;
+    padding:6px 0; border-top:1px solid var(--hairline); color:var(--text-dim);}
+  #card .row b{color:var(--text); font-weight:500; font-variant-numeric:tabular-nums; text-align:right;}
+  #card-foot{margin-top:12px; font-size:11px; color:var(--text-dim);}
+
+  @media (max-width:560px){
+    .overlay{grid-template-columns:1fr; grid-template-areas:"who" "nav" "hud";}
+    nav{justify-content:flex-start; margin-top:12px;}
+  }
+</style>
+</head>
+<body>
+<canvas id="game" aria-hidden="true"></canvas>
+
+<div class="overlay" id="overlay">
+  <div class="who">
+    <h1>Pouyan Navabi</h1>
+    <p>physical chemistry &middot; atomic layer deposition &middot; machine learning</p>
+  </div>
+  <nav>
+    <a href="/cv.pdf">CV</a>
+    <a href="/blog/">Blog</a>
+    <a href="https://github.com/pouyna">GitHub</a>
+    <!-- TODO-URL: <a href="">Scholar</a> -->
+    <!-- TODO-URL: <a href="">LinkedIn</a> -->
+    <a href="mailto:hello@pouyna.com">Email</a>
+  </nav>
+  <div class="hud">
+    <div id="hud-thick">0.00 nm</div>
+    <div id="hud-sub"></div>
+    <div class="hud-proc">
+      <canvas id="hud-bar" width="150" height="4"></canvas>
+      <span id="hud-phase">chamber idle</span>
+    </div>
+    <div id="hud-hint"></div>
+  </div>
+</div>
+
+<div id="ring" aria-hidden="true">
+  <svg viewBox="0 0 120 120">
+    <defs>
+      <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#5B8DEF"/>
+        <stop offset="1" stop-color="#EFC94C"/>
+      </linearGradient>
+    </defs>
+    <circle class="track" cx="60" cy="60" r="52"/>
+    <circle id="ring-fill" class="fill" cx="60" cy="60" r="52"/>
+    <circle id="ring-dot" class="dot" cx="112" cy="60" r="5"/>
+  </svg>
+  <div id="ring-label">grow</div>
+</div>
+
+<div id="card" role="status" aria-live="polite">
+  <div class="eyebrow" id="card-eyebrow">run complete</div>
+  <div id="card-nm">0.00 nm</div>
+  <div class="row"><span>purity</span><b id="card-purity"></b></div>
+  <div class="row"><span>defects buried</span><b id="card-defects"></b></div>
+  <div class="row"><span>clusters zapped</span><b id="card-zaps"></b></div>
+  <div class="row"><span>cycles completed</span><b id="card-cycles"></b></div>
+  <div class="row"><span>growth per cycle</span><b id="card-gpc"></b></div>
+  <div class="row" id="card-best-row"><span id="card-best-label">best purity</span><b id="card-best"></b></div>
+  <div id="card-foot">swipe up for a fresh run</div>
+</div>
+
+<noscript><div style="position:fixed;left:26px;bottom:20px;color:#8A94A6;font-size:12px;">The film only grows with JavaScript enabled.</div></noscript>
+
+<script src="/assets/js/film.js"></script>
+<script src="/assets/js/game.js"></script>
+</body>
+</html>

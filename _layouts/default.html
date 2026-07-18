@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% if page.title %}{{ page.title }} &middot; {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/site.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="home" href="/">Pouyan Navabi</a>
+  <nav>
+    <a href="/cv.pdf">CV</a>
+    <a href="/blog/">Blog</a>
+    <a href="https://github.com/pouyna">GitHub</a>
+    <a href="mailto:hello@pouyna.com">Email</a>
+  </nav>
+</header>
+<main class="wrap">
+{{ content }}
+</main>
+<footer class="wrap">&copy; 2026 Pouyan Navabi</footer>
+</body>
+</html>
