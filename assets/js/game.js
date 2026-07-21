@@ -642,7 +642,10 @@
   }
 
   canvas.addEventListener('pointerdown', function (e) {
-    if (card.classList.contains('on')) hideCard();
+    if (card.classList.contains('on')) {
+      if (e.target && e.target.closest && e.target.closest('#card-more')) return;
+      hideCard();
+    }
     if (playing) {
       if (zapAt(e.clientX, e.clientY, e.pointerType === 'touch' ? 52 : 32)) zaps += 1;
     } else {
